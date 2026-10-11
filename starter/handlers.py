@@ -199,9 +199,15 @@ def compose(face, screen, st, now):
     return out
 
 
+NO_COUNT = (" Never count in or count beats aloud (no 'five, six, seven, eight'): " +
+            ("the lesson has no counting at all." if DANCE_MODE == 'poses' else "the recorded counts and music do that, you only talk between parts."))
+# (Steven, 12:49: Gemini counted over the recorded count-in, two countdowns; in the pose game it counted with nothing to count.)
+
+
 def _ask(prompt):
-    """Ask the character (through Brodie's ask_voice); returns the prompt so when_quiet(..., retry=prompt) can ask it again if lost."""
-    if S['ask']: S['ask'](prompt)
+    """Ask the character (through Brodie's ask_voice); returns the prompt so when_quiet(..., retry=prompt) can ask it again if lost.
+    Every prompt ends with the no-counting rule."""
+    if S['ask']: S['ask'](prompt + NO_COUNT)
     return prompt
 
 

@@ -205,6 +205,7 @@ class Perception:
         self._perception_events(r, t_mono)
         if self.cfg.dance:                                            # dance mode: the landmarks to the handlers, no workout script
             a = self.pipe.last_landmarks
+            self.last_rgb = rgb.copy()                                # the caller's latest frame, for the dance screen (starter/dance/screen.py)
             self._emit('pose', ok=a is not None, wh=[int(rgb.shape[1]), int(rgb.shape[0])],
                        kp=(np.round(a[:, :4], 4).tolist() if a is not None else None))   # (33,4) x,y in 0..1 of the frame, z, visibility
         else:

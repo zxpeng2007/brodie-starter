@@ -45,7 +45,7 @@ VOICES = typing.get_args(Voice)
 STRIKES_TO_CRUELTY = 3
 DANCE_FPS = 10
 PRIVATE = '(Private instruction for you, never say it aloud; answer the caller in your own words.) '   # Brodie's fix (facetime/voice.py): stops the model reading prompts out
-DANCE_REACT_S = 12.0                                 # Dancity rates a move at most this often, so it doesn't talk over you
+DANCE_REACT_S = float(os.environ.get('VERITY_DANCE_REACT_S', '20'))   # Dancity rates a move at most this often, so it doesn't talk over you
 MAX_CALL_S = int(os.environ.get('VERITY_MAX_CALL_S', '900'))   # hard cap per call: the team has 240 Gemini Live minutes
 LEAVE_GRACE_S = 5.0                                  # a caller who drops and doesn't come back within this ends the call
 
