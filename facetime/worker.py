@@ -323,7 +323,8 @@ class CoachJob:
             self.consumer_tasks = [asyncio.create_task(self._status_loop(), name='status-loop')]
         else:
             self.thread = threading.Thread(target=self.feed, daemon=True, name='perception-feed'); self.thread.start()
-            self.consumer_tasks = []
+            # dance mode: the worker's own 5 s status tick too, so the handlers hear from a caller who sends no video (camera off)
+            self.consumer_tasks = [asyncio.create_task(self._status_loop(), name='status-loop')] if getattr(a, 'dance', False) else []
         self.consumer_tasks += [asyncio.create_task(fn(self), name=f'consumer-{fn.__name__}') for fn in CONSUMERS]
         if self.voice is not None:
             self.consumer_tasks.append(asyncio.create_task(self.voice.run(), name='consumer-voice'))
@@ -409,8 +410,9 @@ class CoachJob:
     def on_track_subscribed(self, track, pub, participant):
         own = participant.kind == AGENT_KIND or participant.identity == self.room.local_participant.identity
         if track.kind != rtc.TrackKind.KIND_VIDEO:
-            # --perception off: a caller with audio and no video (an audio-only call) is still a caller; the model session starts on it
-            if track.kind == rtc.TrackKind.KIND_AUDIO and self.voice_mode and self.bound is None and not own and not self.closed:
+            # --perception off, and dance mode: a caller with audio and no video (camera off, permission denied) is still a caller; the
+            # model session starts on it so the character can ask for the camera (12:42 call: 0 frames received, Brodie silent)
+            if track.kind == rtc.TrackKind.KIND_AUDIO and (self.voice_mode or getattr(self.a, 'dance', False)) and self.bound is None and not own and not self.closed:
                 self.bind(participant, f'audio {pub.name!r} (no video yet)')
             return
         if own:

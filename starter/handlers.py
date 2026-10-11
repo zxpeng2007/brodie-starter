@@ -528,6 +528,8 @@ def on_event(event, say_now, ask_voice):
         if S['state'] == 'idle' and not POSES_MODE: start_call()    # counts: the caller's video arrived: watch first, then set up (poses: wait to see them)
     elif t == 'visibility':
         S['vis_full'] = event.get('state') == 'full'; _set_visible()
+    elif t == 'status' and POSES_MODE and S['state'] == 'idle':
+        posegame.no_camera_tick(event)                                   # on the call with no video yet: ask for the camera
 
 
 if POSES_MODE:                                              # the pose game uses this module's helpers (asks, retries, anger, the loop)

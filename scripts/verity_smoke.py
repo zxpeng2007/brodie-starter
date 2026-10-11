@@ -47,8 +47,34 @@ async def main(a):
         if t.kind == rtc.TrackKind.KIND_VIDEO: asyncio.create_task(grab(t))
         elif t.kind == rtc.TrackKind.KIND_AUDIO: asyncio.create_task(hear(t))
     room.on('track_subscribed', on_track)
+    async def finish():
+        if a.record and rec:                                     # everything the agent played (voice, counts, music) as one wav
+            import wave
+            rate, ch = rec[0][0], rec[0][1]; pcm = np.concatenate([p for _, _, p in rec])
+            with wave.open(a.record, 'wb') as w:
+                w.setnchannels(ch); w.setsampwidth(2); w.setframerate(rate); w.writeframes(pcm.tobytes())
+            print(f'recorded {len(pcm) / ch / rate:.1f} s of the agent\'s audio to {a.record}', flush=True)
+        if a.video_out and writer['w'] is not None:              # the agent's video, with its audio when --record was given (ffmpeg)
+            import shutil, subprocess
+            writer['w'].release(); v = a.video_out + '.video.mp4'
+            if a.record and rec and shutil.which('ffmpeg'):
+                r = subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-i', v, '-i', a.record, '-c:v', 'libx264', '-pix_fmt', 'yuv420p',
+                                    '-c:a', 'aac', '-shortest', a.video_out])
+                if r.returncode == 0: os.remove(v); print(f'wrote {a.video_out} (the agent\'s video + audio)', flush=True)
+                else: print(f'ffmpeg failed; silent video left at {v}', flush=True)
+            else: os.replace(v, a.video_out); print(f'wrote {a.video_out} (video only; add --record for audio)', flush=True)
+
     info = mint_call(a.character, a.room)
     await room.connect(info['url'], info['token'])
+    if a.no_video:                                           # an audio-only caller (camera off): publish a silent mic track instead
+        asrc = rtc.AudioSource(48000, 1)
+        await room.local_participant.publish_track(rtc.LocalAudioTrack.create_audio_track('mic', asrc),
+                                                   rtc.TrackPublishOptions(source=rtc.TrackSource.SOURCE_MICROPHONE))
+        async def silence():
+            while True:
+                await asrc.capture_frame(rtc.AudioFrame(bytes(960 * 2), 48000, 1, 960)); await asyncio.sleep(0.02)
+        task = asyncio.create_task(silence()); await asyncio.sleep(a.seconds); task.cancel(); await room.disconnect()
+        await finish(); return
     cap = cv2.VideoCapture(a.video); ok, img = cap.read(); h, w = img.shape[:2]
     src = rtc.VideoSource(w, h)
     await room.local_participant.publish_track(rtc.LocalVideoTrack.create_video_track('cam', src),
@@ -65,21 +91,7 @@ async def main(a):
         print(f'[{time.monotonic() - t0:5.1f}s] CALLER: {line}', flush=True)
         await room.local_participant.send_text(line, topic='lk.chat'); sent['t'] = time.monotonic()
     await asyncio.sleep(a.seconds if a.silent else 10); task.cancel(); await room.disconnect()
-    if a.record and rec:                                     # everything the agent played (voice, counts, music) as one wav
-        import wave
-        rate, ch = rec[0][0], rec[0][1]; pcm = np.concatenate([p for _, _, p in rec])
-        with wave.open(a.record, 'wb') as w:
-            w.setnchannels(ch); w.setsampwidth(2); w.setframerate(rate); w.writeframes(pcm.tobytes())
-        print(f'recorded {len(pcm) / ch / rate:.1f} s of the agent\'s audio to {a.record}', flush=True)
-    if a.video_out and writer['w'] is not None:              # the agent's video, with its audio when --record was given (ffmpeg)
-        import shutil, subprocess
-        writer['w'].release(); v = a.video_out + '.video.mp4'
-        if a.record and rec and shutil.which('ffmpeg'):
-            r = subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-i', v, '-i', a.record, '-c:v', 'libx264', '-pix_fmt', 'yuv420p',
-                                '-c:a', 'aac', '-shortest', a.video_out])
-            if r.returncode == 0: os.remove(v); print(f'wrote {a.video_out} (the agent\'s video + audio)', flush=True)
-            else: print(f'ffmpeg failed; silent video left at {v}', flush=True)
-        else: os.replace(v, a.video_out); print(f'wrote {a.video_out} (video only; add --record for audio)', flush=True)
+    await finish()
 
 
 if __name__ == '__main__':
@@ -89,4 +101,5 @@ if __name__ == '__main__':
     ap.add_argument('--silent', action='store_true', help='send no chat lines (a dancer)'); ap.add_argument('--seconds', type=float, default=120)
     ap.add_argument('--record', metavar='WAV', help="save the agent's audio to this wav (to hear or transcribe what was really said)")
     ap.add_argument('--video-out', metavar='MP4', help="save the agent's video (with the audio when --record is given) to this mp4: a demo clip")
+    ap.add_argument('--no-video', action='store_true', help='an audio-only caller: publish a silent mic track and no camera (camera-off test)')
     asyncio.run(main(ap.parse_args()))

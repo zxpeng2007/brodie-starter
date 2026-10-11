@@ -137,6 +137,7 @@ def _target():
 
 # ---- the events ----
 def on_pose(event):
+    G['seen_pose'] = True
     """Every pose event: remember the caller's pose for the drawing; score it against the current target while playing."""
     kp = event.get('kp')
     if not event.get('ok') or kp is None:
@@ -162,7 +163,9 @@ def start():
     if G['phase'] != 'idle': return
     G['phase'] = 'intro'; S = _h('S'); ref = _h('ref'); n = len(G['targets'])
     _say('Great, I can see you', 'visibility')
-    p = _h('ask')(f'The caller just stepped into frame, ready. In two short sentences: say hi with your intro line, then explain today\'s '
+    hi = ('There they are: in one short line react to finally seeing them (no second hello), then explain' if G.get('t_no_camera') else
+          'In two short sentences: say hi with your intro line, then explain')
+    p = _h('ask')(f'The caller just stepped into frame, ready. {hi} today\'s '
                   f'lesson: the {ref.name} dance one pose at a time, {n} poses, they copy the move on screen and hold it until it locks in. '
                   f'No counting in this lesson, ever.')
     _h('when_quiet')(_begin, min_wait=4.0, retry=p)
@@ -194,6 +197,23 @@ def _matched():
     if _voice_quiet() and now - G.get('t_praise', 0) >= PRAISE_EVERY_S:   # a bank line never over Brodie's own voice, and not on every quick match
         _say(random.choice(PRAISE)); G['t_praise'] = now
     G['phase'] = 'pause'; _later(PAUSE_S, _next)
+
+
+NO_CAMERA_EVERY_S = 20.0
+
+
+def no_camera_tick(ev):
+    """A status event while nothing has been seen: the caller is on the call without video (camera off or denied). Greet once
+    the model session is up and ask for the camera, then remind every NO_CAMERA_EVERY_S. Stops as soon as a pose arrives."""
+    if G['phase'] != 'idle' or G.get('seen_pose') or ev.get('voice') != 'on': return
+    now = time.time()
+    if now - G.get('t_no_camera', 0) < NO_CAMERA_EVERY_S: return
+    first = not G.get('t_no_camera'); G['t_no_camera'] = now
+    _h('ask')(('The call just connected but their camera is off, so you cannot see them yet. In two short sentences: say hi with your '
+               'intro line, then ask them to turn the camera on and prop the phone up so you can see them from head to hips; the lesson '
+               'starts when you see them.') if first else
+              'Their camera is still off. One short, funny nudge to turn it on (you cannot coach what you cannot see).')
+    print('[pose] no camera yet: asked for it', flush=True)
 
 
 def _voice_quiet():
