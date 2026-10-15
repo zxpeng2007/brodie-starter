@@ -69,8 +69,8 @@ async def main():
     r = await anon.post('/api/start', json={'email': 'not-an-email'}); check('a bad email is refused', r.status == 400)
     ana = await visitor(srv, 'Ana@Example.com'); ben = await visitor(srv, 'ben@example.com'); cy = await visitor(srv, 'cy@example.com')
     code, d = await line_of(ana)
-    check('signed in: Brodie is free, with the number (+1 (628) 289-2384, dialled +16282892384)', code == 200 and d['state'] == 'open'
-          and d['facetime'] == NUMBER and d['facetime_dial'] == '+16282892384', d)
+    check('signed in: Brodie is free, the button only: no number before the click', code == 200 and d['state'] == 'open'
+          and 'facetime' not in d and 'facetime_dial' not in d, d)
     r = await ana.get('/api/me'); check('returning visitor: the session cookie skips sign-up', r.status == 200 and (await r.json())['user']['email'] == 'ana@example.com')
     again = await visitor(srv); r = await again.post('/api/start', json={'email': 'ana@example.com'})
     check('the same email on a new device signs into the same account', (await r.json())['new'] is False)
@@ -78,7 +78,8 @@ async def main():
 
     print('\n3. a click on "FaceTime Brodie" starts a 15-minute session')
     r = await ana.post('/api/line/claim'); d = await j(r)
-    check('Ana clicks: the line is hers (mine), number kept, 15:00', r.status == 200 and d['state'] == 'mine' and d['facetime'] == NUMBER and d['seconds_left'] == 900, mmss(d.get('seconds_left', 0)))
+    check('Ana clicks: the line is hers (mine) and the click reveals the number (+1 (628) 289-2384, dialled +16282892384), 15:00',
+          r.status == 200 and d['state'] == 'mine' and d['facetime'] == NUMBER and d['facetime_dial'] == '+16282892384' and d['seconds_left'] == 900, mmss(d.get('seconds_left', 0)))
     CLOCK[0] += 42
     code, d = await line_of(ben)
     check('everyone else: busy, real time left (14:18), no number', d['state'] == 'busy' and d['seconds_left'] == 900 - 42 and 'facetime' not in d, mmss(d['seconds_left']))
@@ -94,7 +95,8 @@ async def main():
     CLOCK[0] += 300
     r = await ana.post('/api/line/done'); d = await j(r)
     code, b = await line_of(ben); code, c = await line_of(cy)
-    check('Ana is done: free for Ana, Ben and Cy right away, number back', d['freed'] and d['state'] == 'open' and b['state'] == 'open' and c['facetime'] == NUMBER, b['state'])
+    check('Ana is done: free for Ana, Ben and Cy right away (button only, the number hidden again)', d['freed'] and d['state'] == 'open'
+          and b['state'] == 'open' and c['state'] == 'open' and 'facetime' not in d and 'facetime' not in c, b['state'])
 
     print('\n5. two clicks at the same moment: the first gets the line')
     rs = await asyncio.gather(ben.post('/api/line/claim'), cy.post('/api/line/claim'))
@@ -107,8 +109,8 @@ async def main():
     await ana.post('/api/line/claim'); CLOCK[0] += 899
     code, d = await line_of(ben); check('busy one second before the end', d['state'] == 'busy' and d['seconds_left'] == 1, mmss(d['seconds_left']))
     CLOCK[0] += 1
-    code, d = await line_of(ben); check('at 15:00: free, number shown, no reload needed (the page polls)', d['state'] == 'open' and d['facetime'] == NUMBER, d['state'])
-    r = await ben.post('/api/line/claim'); check('and the next visitor can take it', r.status == 200)
+    code, d = await line_of(ben); check('at 15:00: free (no reload needed: the page polls), number hidden until the next click', d['state'] == 'open' and 'facetime' not in d, d['state'])
+    r = await ben.post('/api/line/claim'); d = await j(r); check("and the next visitor's click takes it and gets the number", r.status == 200 and d['facetime'] == NUMBER)
     log = (await j(await ben.get('/api/admin/line?key=adm')))['log']
     check('the expiry is logged at the end time', any(e['event'] == 'expired' and e['t'] == CLOCK[0] for e in log), [e['event'] for e in log[:3]])
     await ben.post('/api/line/done')

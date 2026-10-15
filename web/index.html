@@ -467,26 +467,25 @@
     $('line').hidden = false; $('line').className = 'linebox ' + v.state;
     $('line-msg').textContent = v.text;
     $('line-timer').hidden = !v.timer; $('line-timer').textContent = v.timer;
-    const call = (v.state === 'open' || v.state === 'mine') && !!v.facetime;   // free, or the session is this visitor's
-    $('line-call').hidden = !call; $('line-done').hidden = v.state !== 'mine';
+    // free: the button only (the number comes with the session, after the click); mine: the number, the button, "I'm done"
+    $('line-call').hidden = !(v.state === 'open' || v.state === 'mine');
+    $('line-done').hidden = v.state !== 'mine';
     lineState = v.state;
-    if (call) {
-      $('line-number').textContent = v.facetime;
-      $('line-facetime').href = 'facetime:' + (v.dial || dial(v.facetime));
-    }
+    const mine = v.state === 'mine' && !!v.facetime;
+    $('line-number').hidden = !mine; $('line-number').textContent = mine ? v.facetime : '';
+    $('line-facetime').href = mine ? 'facetime:' + (v.dial || dial(v.facetime)) : '#';
   }
   // "FaceTime Brodie": take the line first (two clicks at once: the server gives it to the first), then open FaceTime
   let lineState = '';
   $('line-facetime').addEventListener('click', async (e) => {
     if (lineState === 'mine') return;                              // the session is already theirs: straight to FaceTime
     e.preventDefault();
-    const href = $('line-facetime').href;
     try {
       const r = await fetch(API + '/api/line/claim' + PREVIEW, { method: 'POST', credentials: 'same-origin' });
       const d = await r.json().catch(() => ({}));
       if (r.status === 401) return signedIn(null);
       if (line && d.state) line.apply(d);
-      if (r.ok && d.state === 'mine') location.href = href;
+      if (r.ok && d.state === 'mine' && d.facetime) location.href = 'facetime:' + (d.facetime_dial || dial(d.facetime));   // number now shown too
     } catch (err) { $('line-msg').textContent = 'No connection to the server. Try again in a moment.'; }
   });
   $('line-done').addEventListener('click', async () => {

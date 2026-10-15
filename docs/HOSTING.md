@@ -41,7 +41,7 @@ Environment variables on the host:
 | `HEARTBEAT_KEY` | any long random string, the same as the worker's `BRODIE_HEARTBEAT_KEY`: the worker's heartbeat decides online / offline on the page (unset: never shown as offline) |
 | `SESSION_SECRET` | any long random string, so logins survive a redeploy |
 | `BRODIE_DB` | path of the sqlite file, on a persistent disk if the host has one (default `data/brodie.db`) |
-| `FACETIME_NUMBER` | the Chert FaceTime line, e.g. `+16282892384` (any formatting is fine: the link uses the digits, the page shows `+1 (628) 289-2384`); shown only to signed-in visitors while Brodie is free |
+| `FACETIME_NUMBER` | the Chert FaceTime line, e.g. `+16282892384` (any formatting is fine: the link uses the digits, the page shows `+1 (628) 289-2384`); shown only after a signed-in visitor clicks "FaceTime Brodie" (that click starts their 15-minute session) |
 | `LINE_CAP_S` | session length in seconds (optional, default 900 = 15 minutes) |
 | `ADMIN_KEY` on `/stats.html` | the stats page also shows Brodie's line and has Mark busy (1 to 15 minutes), Add 5 minutes and Mark free; all need the key |
 | `DEV_PREVIEW` | never on the host. `1` on a dev machine turns on `?preview=free`, `busy`, `mine`, `offline`, `loggedout` |

@@ -67,8 +67,7 @@ def _preview_line(p):
             return dict(st, state='mine', seconds_left=int(round(left)), facetime=shown or '+1 (555) 010-0000', facetime_dial=dial or '+15550100000')
         p = 'free'
     if p == 'offline': return dict(st, state='offline', seconds_left=0)
-    shown, dial = facetime_number()
-    return dict(st, state='open', seconds_left=0, facetime=shown or '+1 (555) 010-0000', facetime_dial=dial or '+15550100000')
+    return dict(st, state='open', seconds_left=0)
 
 
 def _public(u):
@@ -150,9 +149,10 @@ async def heartbeat(req):
 
 
 def _line_view(u):
-    """What this visitor sees, with the FaceTime number when the line is free or the session is theirs."""
+    """What this visitor sees. The FaceTime number only once the session is theirs (after their click on "FaceTime Brodie"),
+    so almost every caller starts the timer; a free line shows the button only."""
     st = line.view(u['id'], worker_online())
-    if st['state'] in ('open', 'mine'): st['facetime'], st['facetime_dial'] = facetime_number()
+    if st['state'] == 'mine': st['facetime'], st['facetime_dial'] = facetime_number()
     return st
 
 
